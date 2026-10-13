@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Install Python package and launcher without touching models or active services.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON="${PYTHON:-python3}"
+TARGET="${HOME}/.local/share/voice-io/venv"
+
+if [[ $# -gt 1 || ( $# -eq 1 && $1 != --desktop ) ]]; then
+    printf 'usage: scripts/install [--desktop]\n' >&2
+    exit 2
+fi
+if [[ "${1:-}" == --desktop && "$(uname -s)" != Linux ]]; then
+    printf '%s\n' '--desktop installs Linux XDG launchers only; macOS runs ~/.local/bin/voice-io.sh start' >&2
+    exit 2
+fi
+"$PYTHON" -m venv "$TARGET"
+if [[ "$(uname -s)" == Darwin ]]; then
+    "$TARGET/bin/python" -m pip install "${ROOT}[mac]"
+else
+    "$TARGET/bin/python" -m pip install "$ROOT"
+fi
+mkdir -p "${HOME}/.local/bin"
+install -m 755 "$ROOT/voice-io.sh" "${HOME}/.local/bin/voice-io.sh"
+
+if [[ "${1:-}" == --desktop ]]; then
+    application="${HOME}/.local/share/applications/voice-io.desktop"
+    mkdir -p "$(dirname "$application")" "${HOME}/.local/share/icons/hicolor/scalable/apps"
+    # Desktop launches may not inherit ~/.local/bin in PATH.
+    while IFS= read -r line || [[ -n $line ]]; do
+        case "$line" in
+            Exec=voice-io.sh*) printf 'Exec="%s/.local/bin/voice-io.sh"%s\n' "$HOME" "${line#Exec=voice-io.sh}" ;;
+            *) printf '%s\n' "$line" ;;
+        esac
+    done < "$ROOT/conf/voice-io.desktop" > "$application"
+    install -m 644 "$ROOT/conf/voice-io-wave.svg" \
+        "${HOME}/.local/share/icons/hicolor/scalable/apps/voice-io.svg"
+    focus_dir="${HOME}/.local/share/gnome-shell/extensions/gnome_focus@voice-io"
+    mkdir -p "$focus_dir"
+    install -m 644 "$ROOT/voice_io/gnome_focus@voice-io/metadata.json" "$focus_dir/metadata.json"
+    install -m 644 "$ROOT/voice_io/gnome_focus@voice-io/extension.js" "$focus_dir/extension.js"
+    printf 'GNOME Wayland focus bridge installed but NOT enabled: gnome-extensions enable gnome_focus@voice-io\n'
+    unit="${HOME}/.config/systemd/user/voice-io.service"
+    mkdir -p "$(dirname "$unit")"
+    if [[ ! -e "$unit" && ! -L "$unit" ]]; then
+        install -m 644 "$ROOT/conf/voice-io.service" "$unit"
+        printf 'Unit installed but NOT enabled/started: %s\n' "$unit"
+    else
+        printf 'Existing service preserved: %s\n' "$unit"
+    fi
+fi
+printf 'Installed. Explicitly install models: %s/.local/bin/voice-io.sh models install\n' "$HOME"
+printf 'Then check models: %s/.local/bin/voice-io.sh models verify\n' "$HOME"
+printf 'Start (after permissions and model install): %s/.local/bin/voice-io.sh start\n' "$HOME"

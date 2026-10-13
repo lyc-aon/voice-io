@@ -1,0 +1,6 @@
+{
+  "uuid": "gnome_focus@voice-io",
+  "name": "Voice IO Focus Identity",
+  "description": "Expose GNOME's currently keyboard-focused window identity to Voice IO.",
+  "shell-version": ["46"]
+}

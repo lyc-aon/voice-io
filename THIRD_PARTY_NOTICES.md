@@ -1,0 +1,16 @@
+# Third-party rights and distribution notes
+
+The GitLab source checkout contains **no model weights**. `voice_io/install_models.py` downloads pinned model artifacts independently to each teammate's machine and checks their integrity. This project's internal-use [LICENSE](LICENSE) covers original voice-io code only; it does not change model or dependency terms.
+
+| Component | Upstream rights | What ships here |
+| --- | --- | --- |
+| [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx/blob/master/LICENSE) runtime and core | Apache-2.0 | Installed through PyPI; preserve upstream license/NOTICE if bundling the runtime. |
+| Silero VAD v5 | [Silero project](https://github.com/snakers4/silero-vad/blob/master/LICENSE): MIT; downloaded [ONNX mirror](https://huggingface.co/csukuangfj/vad) does not declare a separate artifact license | Download only. Confirm the mirror's artifact provenance and license before repackaging it. |
+| English Parakeet TDT 0.6B v2 | [NVIDIA original](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) and [ONNX export](https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8): CC-BY-4.0 | Download only. Commercial use is allowed with attribution and license notice. |
+| X-ASR low-latency preview | [Original model card](https://huggingface.co/GilgameshWind/X-ASR-zh-en): Apache-2.0; ONNX from [sherpa-onnx release](https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models) | Download only. Retain notices if repackaging. |
+| Sherpa zh-en keyword spotter | [Author's clarification](https://github.com/k2-fsa/sherpa-onnx/issues/3802): ModelScope listing updated to Apache-2.0; the release archive itself lacks a LICENSE/README | Download only. Explicit rights/provenance for its bundled `en.phone` lexicon and training data have not been established for redistribution. |
+| Pyannote segmentation 3.0 ONNX | [Original model card](https://huggingface.co/pyannote/segmentation-3.0): MIT (gated at origin); [ONNX release archive](https://github.com/k2-fsa/sherpa-onnx/releases/tag/speaker-segmentation-models) includes MIT `LICENSE`, © 2022 CNRS | Optional download for Meeting/Collaborative; retain its license if bundling. |
+| NeMo TitaNet-S speaker embedding | [NVIDIA model card](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/nemo/models/titanet_small) points to the [NeMo Apache-2.0 license](https://github.com/NVIDIA/NeMo/blob/main/LICENSE) | Optional download for Meeting/Collaborative; retain notices if bundling. |
+| Python dependencies | sounddevice and PyObjC MIT; NumPy [BSD-3-Clause and included components](https://numpy.org/doc/stable/license.html); sherpa-onnx Apache-2.0 | Installed through package manager; preserve each dependency's license if packaging binaries. |
+
+No copied product UI assets, personal recordings, or external model weights belong in the team repository. Optional remote dictation-polish and meeting-summary services have their **own** model and API terms; configuring them sends text to the selected endpoint. Internal team use of the source is different from shipping a binary with bundled weights: clear the two provenance gaps above and review upstream notices before redistributing model files or publicly releasing an installer.
