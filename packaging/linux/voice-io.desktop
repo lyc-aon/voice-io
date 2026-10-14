@@ -1,0 +1,20 @@
+# Template installed by `scripts/install --desktop` on Linux. The installer
+# rewrites each Exec line to the installed binary's absolute path.
+[Desktop Entry]
+Type=Application
+Name=Voice IO
+Comment=Local dictation, meeting notes and collaborative drafts
+Exec=voice-io start
+Icon=voice-io
+Terminal=false
+Categories=AudioVideo;Audio;Utility;
+StartupNotify=false
+Actions=settings;quit;
+
+[Desktop Action settings]
+Name=Settings
+Exec=voice-io settings
+
+[Desktop Action quit]
+Name=Quit Voice IO
+Exec=voice-io stop

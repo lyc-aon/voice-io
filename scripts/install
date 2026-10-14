@@ -1,53 +1,121 @@
 #!/usr/bin/env bash
-# Install Python package and launcher without touching models or active services.
+# Build and install Voice IO for the current user. Nothing is started,
+# enabled or downloaded: run `voice-io models install` and `voice-io start`
+# afterwards.
+#
+#   macOS: ~/Applications/Voice IO.app and ~/.local/bin/voice-io (a link
+#          to the app's binary).
+#   Linux: ~/.local/lib/voice-io/ (binary and speech runtime libraries) and
+#          ~/.local/bin/voice-io. --desktop also installs the launcher, icon,
+#          GNOME focus extension (not enabled) and a systemd user unit (not
+#          enabled; an existing unit is kept).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PYTHON="${PYTHON:-python3}"
-TARGET="${HOME}/.local/share/voice-io/venv"
-
-if [[ $# -gt 1 || ( $# -eq 1 && $1 != --desktop ) ]]; then
+BIN_DIR="${HOME}/.local/bin"
+usage() {
     printf 'usage: scripts/install [--desktop]\n' >&2
     exit 2
-fi
-if [[ "${1:-}" == --desktop && "$(uname -s)" != Linux ]]; then
-    printf '%s\n' '--desktop installs Linux XDG launchers only; macOS runs ~/.local/bin/voice-io.sh start' >&2
-    exit 2
-fi
-"$PYTHON" -m venv "$TARGET"
-if [[ "$(uname -s)" == Darwin ]]; then
-    "$TARGET/bin/python" -m pip install "${ROOT}[mac]"
-else
-    "$TARGET/bin/python" -m pip install "$ROOT"
-fi
-mkdir -p "${HOME}/.local/bin"
-install -m 755 "$ROOT/voice-io.sh" "${HOME}/.local/bin/voice-io.sh"
+}
+desktop=0
+case "${1:-}" in
+    "") ;;
+    --desktop) desktop=1 ;;
+    *) usage ;;
+esac
+[[ $# -le 1 ]] || usage
+cd "$ROOT"
 
-if [[ "${1:-}" == --desktop ]]; then
-    application="${HOME}/.local/share/applications/voice-io.desktop"
-    mkdir -p "$(dirname "$application")" "${HOME}/.local/share/icons/hicolor/scalable/apps"
-    # Desktop launches may not inherit ~/.local/bin in PATH.
+running() {
+    if [[ -x "$BIN_DIR/voice-io" ]] && "$BIN_DIR/voice-io" status >/dev/null 2>&1; then
+        printf 'Voice IO is running; quit it first: voice-io stop\n' >&2
+        exit 1
+    fi
+}
+
+install_macos() {
+    if [[ $desktop == 1 ]]; then
+        printf '%s\n' '--desktop is for Linux; the macOS app is the launcher' >&2
+        exit 2
+    fi
+    running
+    local staging app="${HOME}/Applications/Voice IO.app"
+    staging="$(mktemp -d "${TMPDIR:-/tmp}/voice-io-build.XXXXXX")"
+    trap "rm -rf '$staging'" EXIT
+    scripts/build-macos-app "$staging" >/dev/null
+    mkdir -p "${HOME}/Applications" "$BIN_DIR"
+    rm -rf "$app.previous"
+    if [[ -e "$app" ]]; then
+        mv "$app" "$app.previous"
+    fi
+    ditto "$staging/Voice IO.app" "$app"
+    rm -rf "$app.previous"
+    ln -sfn "$app/Contents/MacOS/voice-io" "$BIN_DIR/voice-io"
+    printf 'Installed %s\n' "$app"
+    printf 'Command line: %s -> the app binary\n' "$BIN_DIR/voice-io"
+}
+
+install_linux() {
+    running
+    local lib="${HOME}/.local/lib/voice-io" staging
+    staging="$(mktemp -d "${TMPDIR:-/tmp}/voice-io-build.XXXXXX")"
+    trap "rm -rf '$staging'" EXIT
+    local version
+    version="2.0.0+$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+        version="$version-dirty"
+    fi
+    CGO_ENABLED=1 go build -trimpath \
+        -ldflags "-s -w -X gitlab.com/integral-inference/voice-io/internal/version.Version=$version -extldflags '-Wl,-rpath,\$ORIGIN/lib'" \
+        -o "$staging/voice-io" ./cmd/voice-io
+    mkdir -p "$staging/lib"
+    # The speech runtime libraries the binary links, from the module cache.
+    ldd "$staging/voice-io" | awk '$3 ~ /sherpa-onnx-go-linux/ {print $3}' | while read -r so; do
+        cp -L "$so" "$staging/lib/"
+    done
+    mkdir -p "$lib" "$BIN_DIR"
+    rm -rf "$lib/lib" "$lib/licenses"
+    install -m 755 "$staging/voice-io" "$lib/voice-io"
+    cp -r "$staging/lib" "$lib/lib"
+    scripts/copy-licenses "$staging/voice-io" "$lib/licenses"
+    ln -sfn "$lib/voice-io" "$BIN_DIR/voice-io"
+    printf 'Installed %s (linked from %s)\n' "$lib/voice-io" "$BIN_DIR/voice-io"
+    if [[ $desktop == 1 ]]; then
+        install_desktop
+    fi
+}
+
+install_desktop() {
+    local apps="${HOME}/.local/share/applications"
+    local icons="${HOME}/.local/share/icons/hicolor/512x512/apps"
+    local ext="${HOME}/.local/share/gnome-shell/extensions/gnome_focus@voice-io"
+    local units="${HOME}/.config/systemd/user"
+    mkdir -p "$apps" "$icons" "$ext" "$units"
+    # Desktop launches may not have ~/.local/bin on PATH.
     while IFS= read -r line || [[ -n $line ]]; do
         case "$line" in
-            Exec=voice-io.sh*) printf 'Exec="%s/.local/bin/voice-io.sh"%s\n' "$HOME" "${line#Exec=voice-io.sh}" ;;
+            Exec=voice-io*) printf 'Exec="%s"%s\n' "$BIN_DIR/voice-io" "${line#Exec=voice-io}" ;;
             *) printf '%s\n' "$line" ;;
         esac
-    done < "$ROOT/conf/voice-io.desktop" > "$application"
-    install -m 644 "$ROOT/conf/voice-io-wave.svg" \
-        "${HOME}/.local/share/icons/hicolor/scalable/apps/voice-io.svg"
-    focus_dir="${HOME}/.local/share/gnome-shell/extensions/gnome_focus@voice-io"
-    mkdir -p "$focus_dir"
-    install -m 644 "$ROOT/voice_io/gnome_focus@voice-io/metadata.json" "$focus_dir/metadata.json"
-    install -m 644 "$ROOT/voice_io/gnome_focus@voice-io/extension.js" "$focus_dir/extension.js"
-    printf 'GNOME Wayland focus bridge installed but NOT enabled: gnome-extensions enable gnome_focus@voice-io\n'
-    unit="${HOME}/.config/systemd/user/voice-io.service"
-    mkdir -p "$(dirname "$unit")"
-    if [[ ! -e "$unit" && ! -L "$unit" ]]; then
-        install -m 644 "$ROOT/conf/voice-io.service" "$unit"
-        printf 'Unit installed but NOT enabled/started: %s\n' "$unit"
-    else
-        printf 'Existing service preserved: %s\n' "$unit"
-    fi
-fi
-printf 'Installed. Explicitly install models: %s/.local/bin/voice-io.sh models install\n' "$HOME"
-printf 'Then check models: %s/.local/bin/voice-io.sh models verify\n' "$HOME"
-printf 'Start (after permissions and model install): %s/.local/bin/voice-io.sh start\n' "$HOME"
+    done < packaging/linux/voice-io.desktop > "$apps/voice-io.desktop"
+    install -m 644 packaging/linux/voice-io.png "$icons/voice-io.png"
+    install -m 644 "packaging/linux/gnome_focus@voice-io/metadata.json" "$ext/metadata.json"
+    install -m 644 "packaging/linux/gnome_focus@voice-io/extension.js" "$ext/extension.js"
+    printf 'GNOME focus extension installed but NOT enabled: gnome-extensions enable gnome_focus@voice-io\n'
+    local name
+    for name in voice-io ydotoold; do
+        if [[ ! -e "$units/$name.service" && ! -L "$units/$name.service" ]]; then
+            install -m 644 "packaging/linux/$name.service" "$units/$name.service"
+            printf 'Unit installed but NOT enabled: %s\n' "$units/$name.service"
+        else
+            printf 'Existing unit kept: %s\n' "$units/$name.service"
+        fi
+    done
+}
+
+case "$(uname -s)" in
+    Darwin) install_macos ;;
+    Linux) install_linux ;;
+    *) printf 'unsupported system %s\n' "$(uname -s)" >&2; exit 2 ;;
+esac
+printf 'Next: voice-io models install [--meeting]   (about 830 MB, checked with SHA-256)\n'
+printf '      voice-io start\n'

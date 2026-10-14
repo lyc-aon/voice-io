@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Build "Voice IO.app": the voice-io binary, the speech runtime libraries it
+# links, the icon and Info.plist. Signs with the first Developer ID
+# Application identity in the keychain (override with CODESIGN_IDENTITY;
+# "-" signs ad hoc). Never launches the app.
+#
+# usage: scripts/build-macos-app [output-dir]      (default: build/)
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OUT="${1:-$ROOT/build}"
+APP="$OUT/Voice IO.app"
+SHORT_VERSION="${SHORT_VERSION:-2.0.0}"
+cd "$ROOT"
+
+if [[ "$(uname -s)" != Darwin ]]; then
+    printf 'build-macos-app runs on macOS\n' >&2
+    exit 2
+fi
+case "$(uname -m)" in
+    arm64) triple=aarch64-apple-darwin ;;
+    x86_64) triple=x86_64-apple-darwin ;;
+    *) printf 'unsupported architecture %s\n' "$(uname -m)" >&2; exit 2 ;;
+esac
+
+build="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
+commit="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+    commit="$commit-dirty"
+fi
+version="$SHORT_VERSION+$commit"
+libs="$(go list -m -f '{{.Dir}}' github.com/k2-fsa/sherpa-onnx-go-macos)/lib/$triple"
+
+rm -rf "$APP"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
+CGO_ENABLED=1 go build -trimpath \
+    -ldflags "-s -w -X gitlab.com/integral-inference/voice-io/internal/version.Version=$version" \
+    -o "$APP/Contents/MacOS/voice-io" ./cmd/voice-io
+cp "$libs/libsherpa-onnx-c-api.dylib" "$libs/libonnxruntime.dylib" "$APP/Contents/Frameworks/"
+chmod 644 "$APP/Contents/Frameworks/"*.dylib
+
+# Load the bundled libraries only: drop the module-cache search paths.
+while read -r rpath; do
+    install_name_tool -delete_rpath "$rpath" "$APP/Contents/MacOS/voice-io"
+done < <(otool -l "$APP/Contents/MacOS/voice-io" | awk '/cmd LC_RPATH/ {getline; getline; print $2}')
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/voice-io"
+
+sed -e "s/__SHORT_VERSION__/$SHORT_VERSION/" -e "s/__BUILD__/$build/" \
+    packaging/macos/Info.plist > "$APP/Contents/Info.plist"
+cp packaging/macos/VoiceIO.icns "$APP/Contents/Resources/"
+scripts/copy-licenses "$APP/Contents/MacOS/voice-io" "$APP/Contents/Resources/Licenses"
+printf 'APPL????' > "$APP/Contents/PkgInfo"
+
+identity="${CODESIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null |
+    awk -F'"' '/Developer ID Application/ {print $2; exit}')}"
+identity="${identity:--}"
+sign=(codesign --force --sign "$identity")
+if [[ "$identity" != "-" ]]; then
+    # Hardened runtime keeps the bundle notarizable; TIMESTAMP=1 for releases.
+    sign+=(--options runtime)
+    if [[ "${TIMESTAMP:-0}" == 1 ]]; then sign+=(--timestamp); else sign+=(--timestamp=none); fi
+fi
+for lib in "$APP/Contents/Frameworks/"*.dylib; do
+    "${sign[@]}" "$lib"
+done
+"${sign[@]}" --entitlements packaging/macos/entitlements.plist "$APP"
+codesign --verify --deep --strict "$APP"
+printf '%s\n' "$APP"
+printf 'version %s, signed by %s\n' "$version" "$( [[ "$identity" == "-" ]] && echo "ad hoc" || echo "$identity")"

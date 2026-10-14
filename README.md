@@ -1,39 +1,362 @@
-# voice-io
+# Voice IO
 
-Private-team, source-installed English voice input for Linux GNOME and macOS. Three recording modes share offline speech recognition; downloading models, enabling desktop integrations, and configuring a meeting-summary API are explicit choices.
+**Talk instead of typing, on your own computer.** Voice IO is a free, open-source dictation app for macOS and Linux (GNOME). Hold a key, speak, let go: the text appears wherever your cursor is. It can also take meeting notes with the speakers labelled.
 
-## Install and start
+Speech recognition runs on your machine with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) and NVIDIA's [Parakeet](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) model. Your voice never leaves the computer. There is no account, subscription or usage limit. If you like the hold-a-key-and-talk workflow of apps such as [Wispr Flow](https://wisprflow.ai) but want it free, open source and self-hosted, this is that.
 
-Use Python **3.12+** with `venv` and `pip`, a working microphone, and enough disk space for downloaded model weights. From this checkout:
+![The Voice IO pill: resting, hovered, dictating, recording a meeting, and after pasting](docs/images/overlay.png)
 
-```sh
-./scripts/install                 # package and ~/.local/bin/voice-io.sh
-# Linux GNOME only, instead: ./scripts/install --desktop
-~/.local/bin/voice-io.sh models install
-~/.local/bin/voice-io.sh models verify
-~/.local/bin/voice-io.sh start
-~/.local/bin/voice-io.sh settings
-~/.local/bin/voice-io.sh stop
+## Features
+
+- **Dictate into any app.** On a Mac, hold **fn**, speak and release. On either platform you can also use a shortcut. The text is pasted at the cursor and your clipboard is put back afterwards.
+- **Live preview.** A small pill on the edge of the screen shows a waveform of your voice and your last few words as you speak.
+- **Hands-free.** Say "hey voice", dictate, then say "voice send". Voice IO pastes the text and presses Return, which is handy for chat and AI prompts.
+- **Meeting notes.** Record a conversation and get a Markdown transcript with timestamps and labelled speakers. A language model of your choice can add a summary.
+- **Collaborative drafts.** Several people can talk around one microphone. Voice IO pastes an editable draft labelled by speaker.
+- **Cleanup.**
+  - Your own vocabulary.
+  - Removal of filler words.
+  - Spoken emoji, for example "thumbs up emoji".
+  - Snippets that turn a keyword into fixed text.
+- **Optional AI polish.** Point Voice IO at [Ollama](https://ollama.com) or any OpenAI-compatible server to fix grammar in short dictations. It is off until you set an endpoint.
+- **Nothing is lost.** If text can't be pasted, Voice IO copies it and keeps it for 24 hours.
+- **Private.** Audio and transcripts stay on your computer. Models are downloaded once from their publishers and checked against pinned SHA-256 hashes.
+
+Voice IO understands English only.
+
+## Requirements
+
+| | macOS | Linux |
+| --- | --- | --- |
+| System | macOS 13 Ventura or later. Built and used on Apple silicon; Intel Macs should work but are untested. | GNOME 45 or later on Wayland. X11 sessions are not supported. |
+| To build | Go 1.24 or later, plus the Xcode Command Line Tools | Go 1.24 or later, gcc, pkg-config and the GTK 3 headers |
+| To run | Nothing else | wl-clipboard, ydotool and XWayland |
+| Disk | About 830 MB of speech models, plus 47 MB for meeting notes | Same |
+
+While it runs, Voice IO uses about 2 GB of memory, measured on macOS. The models stay loaded so that dictation starts instantly.
+
+macOS is the main platform. Linux support is newer and has had less real-world use, so bug reports are welcome.
+
+## Install on macOS
+
+1. Install the build tools.
+
+   ```sh
+   xcode-select --install    # Xcode Command Line Tools; skip if already installed
+   brew install go           # or install Go 1.24+ from https://go.dev/dl
+   ```
+
+2. Build and install Voice IO.
+
+   ```sh
+   git clone https://github.com/lyc-aon/voice-io.git
+   cd voice-io
+   scripts/install           # builds ~/Applications/Voice IO.app and links ~/.local/bin/voice-io
+   ```
+
+   If `~/.local/bin` is not on your `PATH`, add it or run `~/.local/bin/voice-io` directly.
+
+3. Download the speech models. You only need to do this once.
+
+   ```sh
+   voice-io models install            # about 830 MB
+   voice-io models install --meeting  # also the speaker models for meeting notes (47 MB more)
+   ```
+
+4. Start it.
+
+   ```sh
+   voice-io start            # or open Voice IO from ~/Applications
+   ```
+
+A small pill appears on the right edge of the screen and an icon appears in the menu bar. Voice IO has no Dock icon.
+
+### Permissions on macOS
+
+macOS asks for two permissions. Allow both, either when asked or in System Settings › Privacy & Security.
+
+- **Microphone**, so that Voice IO can hear you.
+- **Accessibility**, so that Voice IO can paste into the app you are using, press Return for the end phrase and notice the fn key. Until you allow it, Voice IO copies the text instead of pasting it and shows an **Allow** button on the pill.
+
+To dictate by holding **fn**, open System Settings › Keyboard and set **Press 🌐 key to** to **Do Nothing**. Otherwise holding fn also opens the emoji picker or switches the input source.
+
+`scripts/install` signs the app with your Developer ID if your keychain has one. Otherwise it signs the app ad hoc, which works fine on your own Mac. Because the app was built locally, Gatekeeper does not block it.
+
+## Install on Linux (GNOME on Wayland)
+
+1. Install the dependencies.
+
+   ```sh
+   # Ubuntu or Debian
+   sudo apt install git gcc pkg-config libgtk-3-dev wl-clipboard ydotool
+   # Fedora
+   sudo dnf install git gcc pkgconf-pkg-config gtk3-devel wl-clipboard ydotool
+   # Arch
+   sudo pacman -S git go gcc pkgconf gtk3 wl-clipboard ydotool
+   ```
+
+   You also need Go 1.24 or later. The `golang-go` package in Ubuntu 24.04 is too old. Get Go from [go.dev/dl](https://go.dev/dl) or run `sudo snap install go --classic`.
+
+2. Build and install Voice IO.
+
+   ```sh
+   git clone https://github.com/lyc-aon/voice-io.git
+   cd voice-io
+   scripts/install --desktop
+   ```
+
+   This installs the following. None of it is enabled automatically.
+   - The program, in `~/.local/lib/voice-io`.
+   - The `voice-io` command, in `~/.local/bin`.
+   - An app launcher and icon.
+   - The GNOME focus extension.
+   - Two systemd user units, `voice-io` and `ydotoold`.
+
+3. Allow ydotool to send the paste shortcut. ydotool writes to `/dev/uinput`, which needs a udev rule and membership of the `input` group:
+
+   ```sh
+   sudo install -m 644 packaging/linux/99-voiceio-uinput.rules /etc/udev/rules.d/
+   sudo usermod -aG input "$USER"
+   ```
+
+   Restart the computer afterwards. Be aware that members of the `input` group can read every input device, including the keyboard, so consider this before you grant it.
+
+   ydotool 1.x also needs its daemon. Fedora, Arch, and Debian 13 and later ship 1.x. Start the daemon with:
+
+   ```sh
+   systemctl --user enable --now ydotoold
+   ```
+
+   ydotool 0.1.x works without the daemon; Ubuntu 24.04 and Debian 12 ship it. To check which version you have, run `ydotool help`: only 1.x mentions `YDOTOOL_SOCKET`.
+
+4. Download the models and start Voice IO.
+
+   ```sh
+   voice-io models install            # add --meeting for meeting notes
+   voice-io start
+   ```
+
+5. Connect Voice IO to GNOME.
+   - **Shortcuts.** GNOME owns global shortcuts. Click **Apply GNOME shortcuts** in Settings › Shortcuts, or run `voice-io shortcuts apply`. GNOME already uses Ctrl+Alt+T to open a terminal, which is also Voice IO's default on/off shortcut. Change one of them first if you use both.
+   - **Focus bridge (recommended).** Run `gnome-extensions enable gnome_focus@voice-io`. If GNOME has not found the extension yet, log out and back in first. The bridge lets Voice IO check that the window you started in is still focused before it pastes, and it allows the end phrase to press Return. Without it, Voice IO still pastes but never presses Return.
+   - **Start at login.** Use Settings › System › Startup, or run `systemctl --user enable --now voice-io`.
+
+Apps can't see the fn key on Linux. To dictate, press the shortcut once to start and again to finish, or click the microphone on the pill.
+
+## Using Voice IO
+
+| To | Do this |
+| --- | --- |
+| Dictate | **macOS:** hold **fn**, speak and release.<br>**Shortcut:** press **⌃⌥Space** (Ctrl+Alt+Space on Linux) to start and again to finish. On macOS you can also hold it and let go when you're done.<br>**Mouse:** hover over the pill and click the microphone. |
+| Dictate hands-free | Say **"hey voice"**, speak, then say **"voice send"** to paste and press Return. |
+| Take meeting notes | Hover over the pill and click the red record button. Click the pill to stop. |
+| Cancel | Press **⌃⌥X** (Ctrl+Alt+X), or hover over the recording pill and click ×. |
+| Pause listening | Press **⌃⌥T** (Ctrl+Alt+T), or use the menu. |
+| Move the pill | Drag it up or down the edge of the screen. |
+| Open Settings | Use the menu-bar icon (macOS), right-click the pill, or run `voice-io settings`. |
+| Get back text that didn't paste | Use Settings › History, or run `voice-io recover` to copy the latest. |
+
+While you speak, the pill shows a waveform of your voice and your last few words. Voice IO pastes the text once, when you finish, into whatever has focus at that moment. You can change shortcuts, phrases and the default recording mode in Settings › Shortcuts.
+
+By default Voice IO listens for the wake phrase, so the microphone stays open while it is idle and macOS shows its orange microphone indicator. A small keyword model processes that audio in memory. Nothing is recorded or saved until a session starts. If you'd rather not keep the microphone open, turn off Settings › Shortcuts › **Listen for the wake phrase**.
+
+### Meeting notes and collaborative drafts
+
+Meeting notes are saved as Markdown with timestamps. Speakers are numbered in the order they first speak.
+
+- macOS: `~/Library/Application Support/voice-io/meetings`
+- Linux: `~/.local/share/voice-io/meetings`
+
+The audio recording is deleted once the transcript is safely written. Meeting notes need the speaker models: `voice-io models install --meeting`.
+
+A collaborative draft records several people on one microphone. Voice IO then pastes an editable draft labelled by speaker, without pressing Return. To make it the default for the shortcut and the wake phrase, choose **Collaborative** in Settings › Shortcuts.
+
+Only the microphone is recorded. Voices that play through your headphones are not captured. Speaker labels are acoustic estimates, so similar voices can be merged.
+
+### Optional AI polish and meeting summaries
+
+Voice IO works completely offline. You can optionally connect a language model for two things:
+
+- **AI polish** (Settings › Dictation) fixes grammar and punctuation in short dictations.
+- **Summaries** (Settings › Meetings) adds a summary to meeting notes.
+
+Any OpenAI-compatible endpoint works, and a local server keeps everything on your computer. With [Ollama](https://ollama.com):
+
+1. Pull a chat model.
+2. Set the endpoint to `http://127.0.0.1:11434`.
+3. Click **Find models**. If you leave **Model** empty, Voice IO uses the largest model the server has loaded.
+
+A remote endpoint receives the text it processes.
+
+For an endpoint that needs an API key, put the **name** of an environment variable in **API key variable**, for example `OPENAI_API_KEY`. Settings never stores the key itself. The variable must be set in Voice IO's own environment:
+
+- **macOS:** launchd starts the app, so it doesn't see your shell's variables. Run `launchctl setenv OPENAI_API_KEY "…"`, then `voice-io stop && voice-io start`. The setting lasts until you log out.
+- **Linux:** when the systemd unit is installed, `voice-io start` runs Voice IO under systemd. Run `systemctl --user set-environment OPENAI_API_KEY=…` before you start it, or put the variable in `~/.config/environment.d/`.
+
+## Settings
+
+![Voice IO Settings, Overview page](docs/images/settings.png)
+
+Settings opens in its own window on macOS and in your browser on Linux. Open it from the menu, by right-clicking the pill, or with `voice-io settings`. It is served on a random loopback port and protected by a per-session token. Changes apply immediately.
+
+| Page | Contents |
+| --- | --- |
+| Overview | Setup checklist and microphone test |
+| Shortcuts | Keys, wake and end phrases, default recording mode |
+| Dictation | What happens when you finish, vocabulary, snippets, AI polish |
+| Meetings | Summary endpoint and your notes |
+| Appearance | Pill position, theme and waveform color |
+| Models | Model status and downloads |
+| History | Recent dictations and text that didn't paste |
+| System | Start at login, files and data |
+
+Settings are saved to `~/.config/voice-io/config.toml`. Comments and unknown keys are preserved, so you can also edit the file by hand. Custom words and snippets are stored next to it in `vocabulary.json` and `snippets.json`.
+
+## Command line
+
+```
+voice-io start | stop | status        start, quit or inspect the background app
+voice-io settings                     open Settings
+voice-io recover                      copy the latest text that couldn't be pasted
+voice-io models install|verify [--meeting]
+voice-io ctl push|dictate|meeting|collaborative|toggle|cancel|reload
+voice-io shortcuts apply|remove       register GNOME shortcuts (Linux)
+voice-io run [--dry-run] [--input file.wav] [--no-ui]
+                                      run in the foreground; --input replays a 16 kHz mono WAV
+voice-io render-overlay --out dir     draw every overlay state to PNG files, without a window
+voice-io version
 ```
 
-For Meeting or Collaborative, additionally run `~/.local/bin/voice-io.sh models install --meeting` and `~/.local/bin/voice-io.sh models verify --meeting` before recording. These commands explicitly fetch pinned offline weights; starting the daemon does not download models. Exact upstream sources, revisions, required files, and hashes are in [`voice_io/install_models.py`](voice_io/install_models.py). Review [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), including separate model terms, before distributing software or weights.
+## Files and privacy
 
-**Linux GNOME:** Install GTK 3 Python bindings (`python3-gi`, `python3-cairo`, `gir1.2-gtk-3.0`), PortAudio, `wl-clipboard`, and an input sender (`ydotool` or `wtype`); `aplay` is optional for sounds. `--desktop` installs an XDG launcher, SVG icon, optional systemd user-unit template, and GNOME Wayland focus bridge, but enables neither the service nor the extension. To use the bridge, run `gnome-extensions enable gnome_focus@voice-io` (log out/in first if GNOME has not discovered the extension), then restart the daemon. Wayland input injection may require `/dev/uinput` permissions; [`conf/99-voiceio-uinput.rules`](conf/99-voiceio-uinput.rules) grants broad input-device access to the `input` group, so review that privilege before installing it.
+| What | macOS | Linux |
+| --- | --- | --- |
+| Settings | `~/.config/voice-io/` | `~/.config/voice-io/` |
+| Models, history, meeting notes | `~/Library/Application Support/voice-io/` | `~/.local/share/voice-io/` |
+| Log | `~/Library/Logs/voice-io/voice-io.log` | `~/.local/state/voice-io/voice-io.log`, or `journalctl --user -u voice-io` under systemd |
 
-**macOS:** Install PortAudio (for example with Homebrew). The installer adds Cocoa/Quartz Python dependencies; grant the installed Python executable Microphone, Accessibility, and Input Monitoring access in System Settings → Privacy & Security, then restart. Launch `~/.local/bin/voice-io.sh start` from Terminal or your own login item; `--desktop` is Linux-only and there is no signed `.app` bundle. **Actual Mac hardware behavior remains unverified**; check permissions, overlay, hotkeys, and focused paste locally.
+Everything stays on your computer.
 
-## Record
+- **Audio** is processed in memory. A meeting recording is deleted once its transcript is saved.
+- **History** of your dictations is kept until you delete it. You can switch it off in Settings › History.
+- **Text that couldn't be pasted** is kept for 24 hours in private files.
+- **Network use.** The only outgoing connections are the model downloads and any language-model endpoint you configure.
 
-Open Settings with `voice-io.sh settings` or right-click the idle dot at the right screen edge. Choose **Recording mode: Dictation, Meeting, or Collaborative**, save, and restart the daemon. Left-click the dot or use the configured start/finish shortcut to record; click the active pill or use the shortcut again to finish. The toggle and cancel shortcuts provide alternate control. The default shortcuts are `ctrl+alt+space` (start/finish), `ctrl+alt+t` (toggle), and `ctrl+alt+x` (cancel); wake and end phrases are **hey voice** and **voice send**. Settings can change these. In GNOME, enable GNOME shortcuts explicitly in Settings after saving. The wake phrase can start any mode while idle. The end phrase closes and submits only solo dictation; Meeting and Collaborative finish with the shortcut or pill, not the end phrase.
+## Troubleshooting
 
-- **Dictation:** Speak English naturally, including words that resemble application commands: they become draft text, not shell/app actions. The offline recognizer finalizes turns, optionally polishes shorter drafts through a configured LLM endpoint, and pastes the finished text once at the focused cursor. No text is typed while speaking.
-- **Meeting:** Record and stop to save a private, timestamped, speaker-labelled transcript; nothing is pasted. Optional summary generation sends speaker-labelled transcript chunks to a separately configured OpenAI-compatible chat-completions API. Leave the summary endpoint/model blank to keep the transcript fully offline; a hosted API receives meeting content. Put an API key in the named environment variable of the launching process, never in the config file. An API failure leaves the transcript available without a summary.
-- **Collaborative:** Record shared-microphone speakers, then stop to paste one editable, speaker-labelled draft at the focused cursor. It does not auto-submit or request a summary. Speaker labels are acoustic estimates, not verified identities.
+**The text was copied but not pasted.**
+- **macOS:** Voice IO needs Accessibility. Click **Allow** on the pill, or turn on Voice IO in System Settings › Privacy & Security › Accessibility. To always paste yourself, turn off Settings › Dictation › **Paste automatically**.
+- **Linux:** the paste shortcut couldn't be sent. Check the following:
+  - `ydotool` is installed.
+  - You are in the `input` group (`id -nG`).
+  - For ydotool 1.x, `systemctl --user status ydotoold` shows the daemon running.
 
-Optional local dictation polish uses `[llm] endpoint` (the API root **without** `/v1`) and `model` in `config.toml`; an empty endpoint leaves deterministic offline cleanup only. A non-local endpoint receives the draft text.
+**Holding fn opens the emoji picker or switches the keyboard language.** Set System Settings › Keyboard › **Press 🌐 key to** to **Do Nothing**.
 
-Meeting and Collaborative capture **the microphone only**: headphone-only remote participants are absent, and overlapping/similar voices may be mislabelled. Keep the intended destination focused until dictation/collaborative paste finishes. Clipboard/paste delivery is best-effort; on GNOME Wayland without the optional focus bridge the app cannot verify the target text field and uses `Shift+Insert` at current keyboard focus. The bridge reveals focused-window metadata on the user's session D-Bus, not text contents. If paste fails, use `~/.local/bin/voice-io.sh recover` to copy the latest saved draft and paste deliberately. Cancel discards the current recording.
+**Holding fn does nothing.** Accessibility is not allowed yet; see above. Settings › Overview shows what's missing.
 
-Settings: `$XDG_CONFIG_HOME/voice-io/config.toml` (default `~/.config/voice-io/config.toml`); model and meeting data: `$XDG_DATA_HOME/voice-io` (default `~/.local/share/voice-io`) on Linux, or `~/Library/Application Support/voice-io` on macOS. Logs: `$XDG_STATE_HOME/voice-io/voice-io.log` (default `~/.local/state/voice-io/voice-io.log`) on Linux or `~/Library/Logs/voice-io/voice-io.log` on macOS. `voice-io.sh run` keeps the daemon in the foreground for diagnosis. Run tests from the checkout with `uv run --frozen --with pytest pytest -q` (requires `uv`); model verification is a separate explicit check above.
+**After updating, macOS keeps asking for permissions, or pasting stopped.** An ad hoc-signed build counts as a new app every time you rebuild it.
+1. Remove Voice IO from the Accessibility list with the – button.
+2. Allow it again.
 
-When publishing to the private team remote, push only the sanitized team branch; do not push all branches or mirror local history. Keep recordings, downloaded models, settings, and logs out of Git.
+Or reset its permissions and restart it:
+
+```sh
+tccutil reset Accessibility com.integralinference.voiceio
+tccutil reset Microphone com.integralinference.voiceio
+```
+
+A build signed with a Developer ID keeps its permissions across updates.
+
+**The orange microphone dot is always on.** That is the wake phrase listener. Turn it off in Settings › Shortcuts › **Listen for the wake phrase**.
+
+**Nothing is transcribed, or the wrong microphone is used.** Choose the input device in Settings › Overview and click **Test microphone**.
+
+**On Linux the shortcuts don't do anything.** Apply them with `voice-io shortcuts apply`. Then look in GNOME Settings › Keyboard › Custom Shortcuts for an entry that conflicts with a system shortcut.
+
+**On Linux the pill doesn't appear.** Wayland doesn't let apps place an always-on-top overlay, so the pill is an X11 window and needs XWayland. GNOME includes XWayland as standard.
+
+**Polish or summaries say the API key variable is unset.** The variable isn't in Voice IO's environment. See [Optional AI polish and meeting summaries](#optional-ai-polish-and-meeting-summaries).
+
+**Something else.** Run `voice-io status`, then read the log listed under [Files and privacy](#files-and-privacy).
+
+## Updating
+
+```sh
+cd voice-io
+git pull
+voice-io stop
+scripts/install           # add --desktop on Linux
+voice-io models install   # fetches only models a new version adds; installed ones are skipped
+voice-io start
+```
+
+## Uninstall
+
+**macOS.** First turn off Settings › System › **Open at login** if you turned it on. Then:
+
+```sh
+voice-io stop
+rm -rf ~/Applications/"Voice IO.app" ~/.local/bin/voice-io
+tccutil reset All com.integralinference.voiceio     # forget its permissions
+# Optional: delete settings, models, history, meeting notes and logs
+rm -rf ~/.config/voice-io ~/Library/Application\ Support/voice-io ~/Library/Logs/voice-io
+```
+
+**Linux.**
+
+```sh
+voice-io stop
+voice-io shortcuts remove
+systemctl --user disable --now voice-io ydotoold
+gnome-extensions disable gnome_focus@voice-io
+rm -rf ~/.local/lib/voice-io ~/.local/bin/voice-io \
+  ~/.local/share/applications/voice-io.desktop \
+  ~/.local/share/icons/hicolor/512x512/apps/voice-io.png \
+  ~/.local/share/gnome-shell/extensions/gnome_focus@voice-io \
+  ~/.config/systemd/user/voice-io.service ~/.config/systemd/user/ydotoold.service
+# Optional: delete settings, models, history, meeting notes and logs
+rm -rf ~/.config/voice-io ~/.local/share/voice-io ~/.local/state/voice-io
+# If you installed the udev rule and joined the input group for Voice IO:
+sudo rm /etc/udev/rules.d/99-voiceio-uinput.rules
+sudo gpasswd -d "$USER" input
+```
+
+## How it works
+
+Voice IO is a single Go program with small native hosts.
+
+1. **Audio capture.** [miniaudio](https://miniaud.io) (through [malgo](https://github.com/gen2brain/malgo)) records 16 kHz mono audio.
+2. **Recognition**, all through sherpa-onnx:
+   - Silero VAD finds speech.
+   - A keyword spotter listens for the wake and end phrases.
+   - A small streaming model drives the live preview.
+   - Parakeet TDT 0.6B v2 writes the final text when you finish.
+   - For meetings, pyannote segmentation and NeMo TitaNet tell the speakers apart.
+3. **Pasting.** The text is cleaned up, optionally polished, and pasted through the clipboard with a synthetic ⌘V or Ctrl+V. Your previous clipboard is restored afterwards.
+4. **Overlay.** The pill is drawn in Go (`internal/overlay`) as a display list. The macOS (CoreGraphics) and Linux (cairo/Pango) hosts replay it, so every state can be rendered without opening a window.
+
+Go dependencies:
+- [sherpa-onnx-go](https://github.com/k2-fsa/sherpa-onnx), Apache-2.0, which bundles [ONNX Runtime](https://github.com/microsoft/onnxruntime), MIT.
+- [malgo](https://github.com/gen2brain/malgo), Unlicense; miniaudio is MIT-0 or public domain.
+- [BurntSushi/toml](https://github.com/BurntSushi/toml), MIT.
+- [godbus/dbus](https://github.com/godbus/dbus), BSD-2-Clause, used on Linux only.
+
+The installers copy every linked module's license into the app.
+
+## Development
+
+```sh
+go vet ./... && go test ./...      # speech tests use the installed models and skip without them
+go run ./cmd/voice-io run --dry-run --input speech.wav   # full pipeline from a 16 kHz WAV; nothing is pasted
+go run ./cmd/voice-io render-overlay --out /tmp/overlay  # overlay states as PNG files
+scripts/build-macos-app [outdir]   # build the macOS bundle on its own
+```
+
+On macOS you can make a test recording with `say -v Samantha --data-format=LEI16@16000 -o speech.wav "Hey voice. Testing one two three. Voice send."`.
+
+## License
+
+Voice IO is released under the [MIT License](LICENSE), copyright 2026 Integral Inference Incorporated and Trinity Inference Systems Incorporated.
+
+The license covers Voice IO's own code. The speech models are downloaded from their publishers under their own terms: CC-BY-4.0, Apache-2.0 or MIT, depending on the model. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before you redistribute model files.

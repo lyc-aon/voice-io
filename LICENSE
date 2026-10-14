@@ -1,27 +1,21 @@
-voice-io — Joint Internal-Use License
+MIT License
 
-Copyright (c) 2026 Integral Inference Incorporated and
-Trinity Inference Systems Incorporated. All rights reserved.
+Copyright (c) 2026 Integral Inference Incorporated and Trinity Inference Systems Incorporated
 
-Each named company grants the other, and authorizes its own employees and
-contractors acting on its behalf, a non-exclusive, royalty-free permission to
-use, copy, modify, run, and share the original voice-io project code and its
-modifications within and between the two named companies for their internal
-business purposes. Contractors may use and share it only as necessary for work
-on behalf of a named company. Recipients must retain this notice and applicable
-third-party notices in any copy they share under this license.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-This license does not grant permission to publish, sublicense, sell, or
-distribute the code or a derivative outside the two named companies and their
-authorized personnel, including to customers or affiliates. Other rights
-require the written permission of both rightsholders.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-This grant covers only original voice-io material controlled by the named
-rightsholders. It does not relicense third-party libraries, model weights,
-datasets, recordings, trademarks, or other external works. Those remain
-subject to their own terms; see THIRD_PARTY_NOTICES.md.
-
-THE ORIGINAL PROJECT MATERIAL IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
-KIND, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE, AND NONINFRINGEMENT. TO THE EXTENT PERMITTED BY LAW, NEITHER
-RIGHTSHOLDER IS LIABLE FOR DAMAGES ARISING FROM ITS USE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

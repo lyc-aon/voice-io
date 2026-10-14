@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Copy the project's notices and the license file of every Go module linked
+# into a voice-io binary to a directory shipped beside it.
+#
+# usage: scripts/copy-licenses <voice-io binary> <destination dir>
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+[[ $# -eq 2 ]] || { printf 'usage: scripts/copy-licenses <binary> <dir>\n' >&2; exit 2; }
+bin="$1" dest="$2"
+mkdir -p "$dest"
+cp "$ROOT/LICENSE" "$dest/voice-io-LICENSE.txt"
+cp "$ROOT/THIRD_PARTY_NOTICES.md" "$dest/THIRD_PARTY_NOTICES.md"
+cd "$ROOT"
+go version -m "$bin" | awk '$1 == "dep" {print $2}' | while read -r module; do
+    dir="$(go list -m -f '{{.Dir}}' "$module")"
+    for f in "$dir"/LICENSE* "$dir"/COPYING* "$dir"/NOTICE*; do
+        if [[ -f "$f" ]]; then
+            cp "$f" "$dest/${module//\//_}-$(basename "$f").txt"
+        fi
+    done
+done

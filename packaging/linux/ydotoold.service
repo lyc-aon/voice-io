@@ -1,0 +1,16 @@
+# Template: installed (never enabled) by `scripts/install --desktop`.
+# ydotool 1.x sends Voice IO's paste shortcut through this daemon; 0.1.x
+# (Ubuntu 24.04, Debian 12) works without it. ydotoold needs write access to
+# /dev/uinput: see 99-voiceio-uinput.rules. Run as your user, it listens on
+# $XDG_RUNTIME_DIR/.ydotool_socket, where ydotool looks.
+# Enable: systemctl --user enable --now ydotoold
+[Unit]
+Description=ydotool daemon (sends Voice IO's paste shortcut)
+
+[Service]
+ExecStart=ydotoold
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Voice IO Settings</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="9" y="2" width="14" height="28" rx="7" class="brand-pill"/>
+          <rect x="13" y="9" width="6" height="2.2" rx="1.1" class="brand-bar"/>
+          <rect x="12" y="12.6" width="8" height="2.2" rx="1.1" class="brand-bar"/>
+          <rect x="11" y="16.2" width="10" height="2.2" rx="1.1" class="brand-bar"/>
+          <rect x="12.5" y="19.8" width="7" height="2.2" rx="1.1" class="brand-bar"/>
+        </svg>
+        <div>
+          <div class="brand-name">Voice IO</div>
+          <div class="brand-status" id="brand-status"><span class="dot"></span><span>Connecting…</span></div>
+        </div>
+      </div>
+      <nav class="nav" id="nav" aria-label="Settings sections"></nav>
+      <div class="sidebar-foot" id="sidebar-foot"></div>
+    </aside>
+    <main class="content" id="content" tabindex="-1">
+      <div class="loading">Loading settings…</div>
+    </main>
+  </div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

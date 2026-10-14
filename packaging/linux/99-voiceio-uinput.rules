@@ -1,0 +1,4 @@
+# Voice IO: let the user send the paste shortcut through ydotool (/dev/uinput).
+# Install: sudo install -m 644 packaging/linux/99-voiceio-uinput.rules /etc/udev/rules.d/
+#          sudo usermod -aG input "$USER" && log out and back in
+KERNEL=="uinput", MODE="0660", GROUP="input"

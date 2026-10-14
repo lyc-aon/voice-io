@@ -1,4 +1,0 @@
-# voice-io: allow the user to inject input via ydotool (/dev/uinput).
-# Install: sudo install -m 644 conf/99-voiceio-uinput.rules /etc/udev/rules.d/
-#          sudo usermod -aG input "$USER" && re-login
-KERNEL=="uinput", MODE="0660", GROUP="input"

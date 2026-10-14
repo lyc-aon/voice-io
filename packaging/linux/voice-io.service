@@ -1,0 +1,16 @@
+# Template: installed (never enabled) by `scripts/install --desktop`.
+# Enable after models and audio work: systemctl --user enable --now voice-io
+# The unit needs the desktop session's variables (GNOME normally exports them):
+#   systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP DBUS_SESSION_BUS_ADDRESS
+[Unit]
+Description=Voice IO dictation
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/voice-io run
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target
