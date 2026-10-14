@@ -4,17 +4,19 @@ The source checkout contains **no model weights**. `voice-io models install` dow
 
 ## Bundled with the app
 
-`scripts/build-macos-app` and `scripts/install` copy the license file of every linked Go module into the installed bundle (`Voice IO.app/Contents/Resources/Licenses/`, or `~/.local/lib/voice-io/licenses/` on Linux) together with this file.
+`scripts/build-macos-app`, `scripts/install` and `scripts/build-windows` copy the license file of every linked Go module into the installed bundle (`Voice IO.app/Contents/Resources/Licenses/`, `~/.local/lib/voice-io/licenses/` on Linux, or the `licenses` folder of the Windows zip) together with this file.
 
 | Component | License | How it ships |
 | --- | --- | --- |
-| [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) runtime (`libsherpa-onnx-c-api`) and Go bindings ([sherpa-onnx-go](https://github.com/k2-fsa/sherpa-onnx-go)) | Apache-2.0 | Shared library in `Contents/Frameworks` (macOS) or `~/.local/lib/voice-io/lib` (Linux); Go bindings linked into the binary. |
+| [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) runtime (`libsherpa-onnx-c-api`) and Go bindings ([sherpa-onnx-go](https://github.com/k2-fsa/sherpa-onnx-go)) | Apache-2.0 | Shared library in `Contents/Frameworks` (macOS), `~/.local/lib/voice-io/lib` (Linux) or beside `voice-io.exe` (Windows); Go bindings linked into the binary. |
 | [ONNX Runtime](https://github.com/microsoft/onnxruntime) (`libonnxruntime`) | MIT, © Microsoft Corporation (text below) | Shared library next to sherpa-onnx. |
 | [malgo](https://github.com/gen2brain/malgo) with [miniaudio](https://miniaud.io) | Unlicense / public domain (miniaudio: public domain or MIT No Attribution) | Linked into the binary. |
 | [BurntSushi/toml](https://github.com/BurntSushi/toml) | MIT | Linked into the binary. |
 | [godbus/dbus](https://github.com/godbus/dbus) (Linux) | BSD-2-Clause | Linked into the Linux binary. |
+| [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys), [x/image](https://pkg.go.dev/golang.org/x/image), [x/text](https://pkg.go.dev/golang.org/x/text) (Windows) | BSD-3-Clause | Linked into the Windows binary; x/image draws its overlay. |
 | GTK 3, cairo, Pango (Linux) | LGPL-2.1+ / LGPL-2.1 or MPL-1.1 | Dynamically linked from the system; not shipped. |
-| App icon | Generated for this project with OpenAI `gpt-image-2` (Codex image generation); source SHA-256 `017d5029…842bbd` | `packaging/macos/VoiceIO.icns`, `packaging/linux/voice-io.png`. |
+| Segoe UI (Windows) | Microsoft, part of Windows | Read from `%WINDIR%\Fonts` at run time; not shipped. |
+| App icon | Generated for this project with OpenAI `gpt-image-2` (Codex image generation); source SHA-256 `017d5029…842bbd` | `packaging/macos/VoiceIO.icns`, `packaging/linux/voice-io.png`, `packaging/windows/voice-io.ico`. |
 
 ### ONNX Runtime license
 

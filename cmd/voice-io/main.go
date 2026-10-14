@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strings"
 )
 
-// AppKit and GTK must run on the process's main thread.
+// AppKit, GTK and Win32 windows must run on the process's main thread.
 func init() { runtime.LockOSThread() }
 
 const usage = `usage: voice-io <command> [options]
@@ -32,10 +31,10 @@ Commands:
 
 func main() {
 	args := os.Args[1:]
-	// LaunchServices (Finder, login item, `open`) starts the bundle with no
-	// arguments (or a -psn_ one): run the app itself.
+	// The system (Finder, a login item, the Start menu) starts the app
+	// without a command: run the app itself.
 	cmd := "start"
-	if appBundle() != "" && (len(args) == 0 || strings.HasPrefix(args[0], "-psn_")) {
+	if launchedAsApp(args) {
 		cmd, args = "run", nil
 	}
 	if len(args) > 0 {

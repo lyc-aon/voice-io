@@ -1,9 +1,21 @@
 #define _GNU_SOURCE
 #include "diarize_shim.h"
 
-#include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
+
+// sym finds a sherpa-onnx C API function the Go bindings leave out, in the
+// library they already loaded.
+#ifdef _WIN32
+#include <windows.h>
+static void *sym(const char *name) {
+  HMODULE lib = GetModuleHandleA("sherpa-onnx-c-api.dll");
+  return lib != NULL ? (void *)GetProcAddress(lib, name) : NULL;
+}
+#else
+#include <dlfcn.h>
+static void *sym(const char *name) { return dlsym(RTLD_DEFAULT, name); }
+#endif
 
 typedef int32_t (*progress_fn)(int32_t done, int32_t total, void *arg);
 typedef const void *(*process_fn)(const void *sd, const float *samples, int32_t n,
@@ -24,16 +36,14 @@ int vio_diarize(const void *sd, const float *samples, int32_t n, uintptr_t handl
                 vio_segment **out, int32_t *count) {
   *out = NULL;
   *count = 0;
-  process_fn process =
-      (process_fn)dlsym(RTLD_DEFAULT, "SherpaOnnxOfflineSpeakerDiarizationProcessWithCallback");
+  process_fn process = (process_fn)sym("SherpaOnnxOfflineSpeakerDiarizationProcessWithCallback");
   num_segments_fn num_segments =
-      (num_segments_fn)dlsym(RTLD_DEFAULT, "SherpaOnnxOfflineSpeakerDiarizationResultGetNumSegments");
-  sort_fn sort_by_start =
-      (sort_fn)dlsym(RTLD_DEFAULT, "SherpaOnnxOfflineSpeakerDiarizationResultSortByStartTime");
+      (num_segments_fn)sym("SherpaOnnxOfflineSpeakerDiarizationResultGetNumSegments");
+  sort_fn sort_by_start = (sort_fn)sym("SherpaOnnxOfflineSpeakerDiarizationResultSortByStartTime");
   destroy_segment_fn destroy_segments =
-      (destroy_segment_fn)dlsym(RTLD_DEFAULT, "SherpaOnnxOfflineSpeakerDiarizationDestroySegment");
+      (destroy_segment_fn)sym("SherpaOnnxOfflineSpeakerDiarizationDestroySegment");
   destroy_result_fn destroy_result =
-      (destroy_result_fn)dlsym(RTLD_DEFAULT, "SherpaOnnxOfflineSpeakerDiarizationDestroyResult");
+      (destroy_result_fn)sym("SherpaOnnxOfflineSpeakerDiarizationDestroyResult");
   if (!process || !num_segments || !sort_by_start || !destroy_segments || !destroy_result) {
     return 1;
   }

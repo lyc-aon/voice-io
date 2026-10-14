@@ -1,6 +1,6 @@
 # Voice IO
 
-**Talk instead of typing, on your own computer.** Voice IO is a free, open-source dictation app for macOS and Linux (GNOME). Hold a key, speak, let go: the text appears wherever your cursor is. It can also take meeting notes with the speakers labelled.
+**Talk instead of typing, on your own computer.** Voice IO is a free, open-source dictation app for macOS, Windows and Linux (GNOME). Hold a key, speak, let go: the text appears wherever your cursor is. It can also take meeting notes with the speakers labelled.
 
 Speech recognition runs on your machine with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) and NVIDIA's [Parakeet](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) model. Your voice never leaves the computer. There is no account, subscription or usage limit. If you like the hold-a-key-and-talk workflow of apps such as [Wispr Flow](https://wisprflow.ai) but want it free, open source and self-hosted, this is that.
 
@@ -8,7 +8,7 @@ Speech recognition runs on your machine with [sherpa-onnx](https://github.com/k2
 
 ## Features
 
-- **Dictate into any app.** On a Mac, hold **fn**, speak and release. On either platform you can also use a shortcut. The text is pasted at the cursor and your clipboard is put back afterwards.
+- **Dictate into any app.** On a Mac, hold **fn**, speak and release. On every platform you can also use a shortcut. The text is pasted at the cursor and your clipboard is put back afterwards.
 - **Live preview.** A small pill on the edge of the screen shows a waveform of your voice and your last few words as you speak.
 - **Hands-free.** Say "hey voice", dictate, then say "voice send". Voice IO pastes the text and presses Return, which is handy for chat and AI prompts.
 - **Meeting notes.** Record a conversation and get a Markdown transcript with timestamps and labelled speakers. A language model of your choice can add a summary.
@@ -26,16 +26,16 @@ Voice IO understands English only.
 
 ## Requirements
 
-| | macOS | Linux |
-| --- | --- | --- |
-| System | macOS 13 Ventura or later. Built and used on Apple silicon; Intel Macs should work but are untested. | GNOME 45 or later on Wayland. X11 sessions are not supported. |
-| To build | Go 1.24 or later, plus the Xcode Command Line Tools | Go 1.24 or later, gcc, pkg-config and the GTK 3 headers |
-| To run | Nothing else | wl-clipboard, ydotool and XWayland |
-| Disk | About 830 MB of speech models, plus 47 MB for meeting notes | Same |
+| | macOS | Windows | Linux |
+| --- | --- | --- | --- |
+| System | macOS 13 Ventura or later. Built and used on Apple silicon; Intel Macs should work but are untested. | Windows 10 or 11, x64. Tested on Windows Server 2022. | GNOME 45 or later on Wayland. X11 sessions are not supported. |
+| To build | Go 1.24 or later, plus the Xcode Command Line Tools | Go 1.24 or later, plus mingw-w64 (gcc and windres) and zip. On Windows, MSYS2 provides them. | Go 1.24 or later, gcc, pkg-config and the GTK 3 headers |
+| To run | Nothing else | Nothing else | wl-clipboard, ydotool and XWayland |
+| Disk | About 830 MB of speech models, plus 47 MB for meeting notes | Same | Same |
 
 While it runs, Voice IO uses about 2 GB of memory, measured on macOS. The models stay loaded so that dictation starts instantly.
 
-macOS is the main platform. Linux support is newer and has had less real-world use, so bug reports are welcome.
+macOS is the main platform. Windows and Linux support is newer and has had less real-world use, so bug reports are welcome.
 
 ## Install on macOS
 
@@ -81,6 +81,39 @@ macOS asks for two permissions. Allow both, either when asked or in System Setti
 To dictate by holding **fn**, open System Settings › Keyboard and set **Press 🌐 key to** to **Do Nothing**. Otherwise holding fn also opens the emoji picker or switches the input source.
 
 `scripts/install` signs the app with your Developer ID if your keychain has one. Otherwise it signs the app ad hoc, which works fine on your own Mac. Because the app was built locally, Gatekeeper does not block it.
+
+## Install on Windows
+
+1. Build the Windows package. On Windows, install [Go](https://go.dev/dl) and [MSYS2](https://www.msys2.org), then open the **MSYS2 MINGW64** shell:
+
+   ```sh
+   pacman -S --needed git zip mingw-w64-x86_64-gcc
+   export PATH="$PATH:/c/Program Files/Go/bin"
+   git clone https://github.com/lyc-aon/voice-io.git
+   cd voice-io
+   CC=gcc WINDRES=windres scripts/build-windows
+   ```
+
+   You can also cross-compile on a Mac (`brew install mingw-w64`) or on Linux (`sudo apt install gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 zip`) by running `scripts/build-windows`. Either way, the result is `dist/voice-io-2.0.0-windows-x64.zip`.
+
+2. Unzip it to a folder you keep, for example `%LOCALAPPDATA%\Programs\Voice IO`. The folder holds two programs:
+   - **Voice IO.exe** is the app.
+   - **voice-io.exe** is the same program for the command line.
+
+3. Download the speech models. Open a terminal in that folder and run:
+
+   ```powershell
+   .\voice-io.exe models install            # about 830 MB
+   .\voice-io.exe models install --meeting  # also the speaker models for meeting notes
+   ```
+
+4. Double-click **Voice IO.exe**. The pill appears on the right edge of the screen, and an icon appears in the notification area. Windows may first put the icon in the overflow behind **^**; you can drag it onto the taskbar.
+
+5. Optionally, turn on Settings › System › **Open at login**. To add Voice IO to the Start menu, right-click **Voice IO.exe** and choose **Pin to Start**.
+
+Windows doesn't ask for permission. In Settings › Privacy & security › Microphone, make sure **Microphone access** and **Let desktop apps access your microphone** are both on. Windows Server turns microphone access off by default.
+
+Windows has no fn key for apps. To dictate, press **Ctrl+Alt+Space** once to start and again to finish, or hold it and let go when you're done.
 
 ## Install on Linux (GNOME on Wayland)
 
@@ -147,13 +180,13 @@ Apps can't see the fn key on Linux. To dictate, press the shortcut once to start
 
 | To | Do this |
 | --- | --- |
-| Dictate | **macOS:** hold **fn**, speak and release.<br>**Shortcut:** press **⌃⌥Space** (Ctrl+Alt+Space on Linux) to start and again to finish. On macOS you can also hold it and let go when you're done.<br>**Mouse:** hover over the pill and click the microphone. |
+| Dictate | **macOS:** hold **fn**, speak and release.<br>**Shortcut:** press **⌃⌥Space** (Ctrl+Alt+Space on Windows and Linux) to start and again to finish. On macOS and Windows you can also hold it and let go when you're done.<br>**Mouse:** hover over the pill and click the microphone. |
 | Dictate hands-free | Say **"hey voice"**, speak, then say **"voice send"** to paste and press Return. |
 | Take meeting notes | Hover over the pill and click the red record button. Click the pill to stop. |
 | Cancel | Press **⌃⌥X** (Ctrl+Alt+X), or hover over the recording pill and click ×. |
 | Pause listening | Press **⌃⌥T** (Ctrl+Alt+T), or use the menu. |
 | Move the pill | Drag it up or down the edge of the screen. |
-| Open Settings | Use the menu-bar icon (macOS), right-click the pill, or run `voice-io settings`. |
+| Open Settings | Use the menu-bar icon (macOS) or notification-area icon (Windows), right-click the pill, or run `voice-io settings`. |
 | Get back text that didn't paste | Use Settings › History, or run `voice-io recover` to copy the latest. |
 
 While you speak, the pill shows a waveform of your voice and your last few words. Voice IO pastes the text once, when you finish, into whatever has focus at that moment. You can change shortcuts, phrases and the default recording mode in Settings › Shortcuts.
@@ -165,6 +198,7 @@ By default Voice IO listens for the wake phrase, so the microphone stays open wh
 Meeting notes are saved as Markdown with timestamps. Speakers are numbered in the order they first speak.
 
 - macOS: `~/Library/Application Support/voice-io/meetings`
+- Windows: `%LOCALAPPDATA%\voice-io\meetings`
 - Linux: `~/.local/share/voice-io/meetings`
 
 The audio recording is deleted once the transcript is safely written. Meeting notes need the speaker models: `voice-io models install --meeting`.
@@ -191,13 +225,14 @@ A remote endpoint receives the text it processes.
 For an endpoint that needs an API key, put the **name** of an environment variable in **API key variable**, for example `OPENAI_API_KEY`. Settings never stores the key itself. The variable must be set in Voice IO's own environment:
 
 - **macOS:** launchd starts the app, so it doesn't see your shell's variables. Run `launchctl setenv OPENAI_API_KEY "…"`, then `voice-io stop && voice-io start`. The setting lasts until you log out.
+- **Windows:** run `setx OPENAI_API_KEY "…"` once, then quit Voice IO and start it again from the Start menu or Explorer. A terminal that was already open doesn't see the new variable.
 - **Linux:** when the systemd unit is installed, `voice-io start` runs Voice IO under systemd. Run `systemctl --user set-environment OPENAI_API_KEY=…` before you start it, or put the variable in `~/.config/environment.d/`.
 
 ## Settings
 
 ![Voice IO Settings, Overview page](docs/images/settings.png)
 
-Settings opens in its own window on macOS and in your browser on Linux. Open it from the menu, by right-clicking the pill, or with `voice-io settings`. It is served on a random loopback port and protected by a per-session token. Changes apply immediately.
+Settings opens in its own window on macOS and in your browser on Windows and Linux. Open it from the menu, by right-clicking the pill, or with `voice-io settings`. It is served on a random loopback port and protected by a per-session token. Changes apply immediately.
 
 | Page | Contents |
 | --- | --- |
@@ -210,7 +245,7 @@ Settings opens in its own window on macOS and in your browser on Linux. Open it 
 | History | Recent dictations and text that didn't paste |
 | System | Start at login, files and data |
 
-Settings are saved to `~/.config/voice-io/config.toml`. Comments and unknown keys are preserved, so you can also edit the file by hand. Custom words and snippets are stored next to it in `vocabulary.json` and `snippets.json`.
+Settings are saved to `~/.config/voice-io/config.toml` (`%APPDATA%\voice-io\config.toml` on Windows). Comments and unknown keys are preserved, so you can also edit the file by hand. Custom words and snippets are stored next to it in `vocabulary.json` and `snippets.json`.
 
 ## Command line
 
@@ -229,11 +264,11 @@ voice-io version
 
 ## Files and privacy
 
-| What | macOS | Linux |
-| --- | --- | --- |
-| Settings | `~/.config/voice-io/` | `~/.config/voice-io/` |
-| Models, history, meeting notes | `~/Library/Application Support/voice-io/` | `~/.local/share/voice-io/` |
-| Log | `~/Library/Logs/voice-io/voice-io.log` | `~/.local/state/voice-io/voice-io.log`, or `journalctl --user -u voice-io` under systemd |
+| What | macOS | Windows | Linux |
+| --- | --- | --- | --- |
+| Settings | `~/.config/voice-io/` | `%APPDATA%\voice-io\` | `~/.config/voice-io/` |
+| Models, history, meeting notes | `~/Library/Application Support/voice-io/` | `%LOCALAPPDATA%\voice-io\` | `~/.local/share/voice-io/` |
+| Log | `~/Library/Logs/voice-io/voice-io.log` | `%LOCALAPPDATA%\voice-io\logs\voice-io.log` | `~/.local/state/voice-io/voice-io.log`, or `journalctl --user -u voice-io` under systemd |
 
 Everything stays on your computer.
 
@@ -244,8 +279,9 @@ Everything stays on your computer.
 
 ## Troubleshooting
 
-**The text was copied but not pasted.**
+**The text didn't paste, or was only copied.**
 - **macOS:** Voice IO needs Accessibility. Click **Allow** on the pill, or turn on Voice IO in System Settings › Privacy & Security › Accessibility. To always paste yourself, turn off Settings › Dictation › **Paste automatically**.
+- **Windows:** Windows doesn't let an app send keystrokes to a program running as administrator, so Voice IO can't paste into one. Run Voice IO as administrator too, or copy the text from Settings › History.
 - **Linux:** the paste shortcut couldn't be sent. Check the following:
   - `ydotool` is installed.
   - You are in the `input` group (`id -nG`).
@@ -270,7 +306,11 @@ A build signed with a Developer ID keeps its permissions across updates.
 
 **The orange microphone dot is always on.** That is the wake phrase listener. Turn it off in Settings › Shortcuts › **Listen for the wake phrase**.
 
-**Nothing is transcribed, or the wrong microphone is used.** Choose the input device in Settings › Overview and click **Test microphone**.
+**Nothing is transcribed, or the wrong microphone is used.** Choose the input device in Settings › Overview and click **Test microphone**. On Windows, also check that microphone access is on for desktop apps in Settings › Privacy & security › Microphone; Settings › Overview shows it as not allowed when it is off.
+
+**On Windows the shortcut does nothing.** Another app may already use it; Settings › Shortcuts says so and lets you pick another.
+
+**On Windows the notification-area icon is missing.** It is probably in the overflow behind **^** in the taskbar. Drag it onto the taskbar to keep it visible.
 
 **On Linux the shortcuts don't do anything.** Apply them with `voice-io shortcuts apply`. Then look in GNOME Settings › Keyboard › Custom Shortcuts for an entry that conflicts with a system shortcut.
 
@@ -291,6 +331,8 @@ voice-io models install   # fetches only models a new version adds; installed on
 voice-io start
 ```
 
+On Windows, quit Voice IO (`.\voice-io.exe stop`), build a new zip with `scripts/build-windows`, and unzip it over the old folder. Then run `.\voice-io.exe models install` and start **Voice IO.exe** again.
+
 ## Uninstall
 
 **macOS.** First turn off Settings › System › **Open at login** if you turned it on. Then:
@@ -302,6 +344,8 @@ tccutil reset All com.integralinference.voiceio     # forget its permissions
 # Optional: delete settings, models, history, meeting notes and logs
 rm -rf ~/.config/voice-io ~/Library/Application\ Support/voice-io ~/Library/Logs/voice-io
 ```
+
+**Windows.** First turn off Settings › System › **Open at login** if you turned it on. Then quit Voice IO (`.\voice-io.exe stop`) and delete its folder. Optionally, also delete `%APPDATA%\voice-io` and `%LOCALAPPDATA%\voice-io`, which hold its settings, models, history, meeting notes and logs.
 
 **Linux.**
 
@@ -334,13 +378,14 @@ Voice IO is a single Go program with small native hosts.
    - Parakeet TDT 0.6B v2 writes the final text when you finish.
    - For meetings, pyannote segmentation and NeMo TitaNet tell the speakers apart.
 3. **Pasting.** The text is cleaned up, optionally polished, and pasted through the clipboard with a synthetic ⌘V or Ctrl+V. Your previous clipboard is restored afterwards.
-4. **Overlay.** The pill is drawn in Go (`internal/overlay`) as a display list. The macOS (CoreGraphics) and Linux (cairo/Pango) hosts replay it, so every state can be rendered without opening a window.
+4. **Overlay.** The pill is drawn in Go (`internal/overlay`) as a display list. The macOS (CoreGraphics) and Linux (cairo/Pango) hosts replay it; on Windows, a pure-Go renderer (`internal/raster`) draws it into a layered window. Every state can be rendered to PNG without opening a window.
 
 Go dependencies:
 - [sherpa-onnx-go](https://github.com/k2-fsa/sherpa-onnx), Apache-2.0, which bundles [ONNX Runtime](https://github.com/microsoft/onnxruntime), MIT.
 - [malgo](https://github.com/gen2brain/malgo), Unlicense; miniaudio is MIT-0 or public domain.
 - [BurntSushi/toml](https://github.com/BurntSushi/toml), MIT.
 - [godbus/dbus](https://github.com/godbus/dbus), BSD-2-Clause, used on Linux only.
+- [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys), [x/image](https://pkg.go.dev/golang.org/x/image) and [x/text](https://pkg.go.dev/golang.org/x/text), BSD-3-Clause, used on Windows only.
 
 The installers copy every linked module's license into the app.
 
@@ -351,6 +396,7 @@ go vet ./... && go test ./...      # speech tests use the installed models and s
 go run ./cmd/voice-io run --dry-run --input speech.wav   # full pipeline from a 16 kHz WAV; nothing is pasted
 go run ./cmd/voice-io render-overlay --out /tmp/overlay  # overlay states as PNG files
 scripts/build-macos-app [outdir]   # build the macOS bundle on its own
+scripts/build-windows [outdir]     # build the Windows zip (cross-compiles with mingw-w64)
 ```
 
 On macOS you can make a test recording with `say -v Samantha --data-format=LEI16@16000 -o speech.wav "Hey voice. Testing one two three. Voice send."`.

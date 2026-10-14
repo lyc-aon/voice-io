@@ -3,20 +3,26 @@ package recovery
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
 
-func mode(t *testing.T, path string) os.FileMode {
+// private reports whether only the owner can read path. Windows has no mode
+// bits: files there inherit the private ACL of the user's profile.
+func private(t *testing.T, path string) bool {
 	t.Helper()
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return info.Mode().Perm()
+	return runtime.GOOS == "windows" || info.Mode().Perm()&0o077 == 0
 }
 
 func TestOpenTightensLegacyPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no mode bits on Windows")
+	}
 	dir := filepath.Join(t.TempDir(), "recovery")
 	for _, d := range []string{dir, filepath.Join(dir, "spool"), filepath.Join(dir, "audio")} {
 		if err := os.MkdirAll(d, 0o775); err != nil {
@@ -39,13 +45,13 @@ func TestOpenTightensLegacyPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, d := range []string{dir, filepath.Join(dir, "spool"), filepath.Join(dir, "audio")} {
-		if m := mode(t, d); m&0o077 != 0 {
-			t.Errorf("%s mode %v", d, m)
+		if !private(t, d) {
+			t.Errorf("%s is readable by others", d)
 		}
 	}
 	for _, f := range legacy {
-		if m := mode(t, f); m&0o077 != 0 {
-			t.Errorf("%s mode %v", f, m)
+		if !private(t, f) {
+			t.Errorf("%s is readable by others", f)
 		}
 	}
 }
@@ -63,11 +69,11 @@ func TestFailedPasteKeepsTextAndAudioUntilDropped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m := mode(t, wav); m&0o077 != 0 {
-		t.Errorf("audio mode %v", m)
+	if !private(t, wav) {
+		t.Errorf("audio %s is readable by others", wav)
 	}
 	spooled, _ := filepath.Glob(filepath.Join(s.Dir, "spool", "*.json"))
-	if len(spooled) != 1 || mode(t, spooled[0])&0o077 != 0 {
+	if len(spooled) != 1 || !private(t, spooled[0]) {
 		t.Fatalf("spool files %v", spooled)
 	}
 	latest, ok := s.Latest()
@@ -173,7 +179,7 @@ func TestSpillDirIsPrivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m := mode(t, d); m&0o077 != 0 {
-		t.Fatalf("spill dir mode %v", m)
+	if !private(t, d) {
+		t.Fatalf("spill dir %s is readable by others", d)
 	}
 }

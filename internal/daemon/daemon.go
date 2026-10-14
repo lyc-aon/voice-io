@@ -359,10 +359,13 @@ func (d *Daemon) openSource() bool {
 	}
 	src, err := d.opts.OpenSource(d.cfg())
 	d.mu.Lock()
+	repeated := err != nil && d.sourceErr != nil && d.sourceErr.Error() == err.Error()
 	d.sourceErr = err
 	d.mu.Unlock()
 	if err != nil {
-		d.log.Printf("microphone unavailable: %v", err)
+		if !repeated { // a machine without a microphone retries all day
+			d.log.Printf("microphone unavailable: %v (retrying every 2 s)", err)
+		}
 		d.nextSourceTry = time.Now().Add(2 * time.Second)
 		if d.getState() == Listening {
 			d.opts.Overlay.Result(Result{Text: "Microphone unavailable", Style: "error", AutoClose: 3})

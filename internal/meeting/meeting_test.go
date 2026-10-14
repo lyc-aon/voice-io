@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -110,7 +111,7 @@ func TestRecorderIsPrivateReadableWhileOpenAndDiscardable(t *testing.T) {
 	if err != nil || rate != audio.SampleRate || len(samples) != 6*audio.SampleRate {
 		t.Fatalf("open recording: %d samples at %d Hz, %v", len(samples), rate, err)
 	}
-	if info, _ := os.Stat(r.Path); info.Mode().Perm()&0o077 != 0 {
+	if info, _ := os.Stat(r.Path); runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		t.Fatalf("recording mode %v", info.Mode().Perm())
 	}
 	path, err := r.Close()
@@ -167,7 +168,7 @@ func TestTranscriptKeepsTimestampsAndDropsRawAudio(t *testing.T) {
 	if strings.Contains(doc, "## Summary") {
 		t.Error("summary without an endpoint")
 	}
-	if info, _ := os.Stat(res.Document); info.Mode().Perm()&0o077 != 0 {
+	if info, _ := os.Stat(res.Document); runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		t.Errorf("notes mode %v", info.Mode().Perm())
 	}
 	if _, err := os.Stat(wav); !os.IsNotExist(err) {

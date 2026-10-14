@@ -2,8 +2,15 @@ package main
 
 import (
 	"os"
+	"strings"
 	"syscall"
 )
+
+// launchedAsApp reports whether LaunchServices (Finder, a login item,
+// `open`) started the bundle: it passes no arguments, or a -psn_ one.
+func launchedAsApp(args []string) bool {
+	return appBundle() != "" && (len(args) == 0 || strings.HasPrefix(args[0], "-psn_"))
+}
 
 // logToFile points stdout and stderr at the log file when they lead to
 // /dev/null, as they do when LaunchServices or a login item starts the app.

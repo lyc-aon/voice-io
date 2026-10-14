@@ -1,9 +1,11 @@
-// Package paths resolves voice-io's per-user files on macOS and Linux.
+// Package paths resolves voice-io's per-user files.
 //
 // Config lives at $VOICE_IO_CONFIG, else $XDG_CONFIG_HOME/voice-io/config.toml
-// (default ~/.config/voice-io/config.toml) on both systems. Data (models,
-// recovery, meetings, history) lives in ~/Library/Application Support/voice-io
-// on macOS and $XDG_DATA_HOME/voice-io on Linux. Nothing here creates files.
+// (default ~/.config/voice-io/config.toml) on macOS and Linux and
+// %APPDATA%\voice-io\config.toml on Windows. Data (models, recovery,
+// meetings, history) lives in ~/Library/Application Support/voice-io on
+// macOS, $XDG_DATA_HOME/voice-io on Linux and %LOCALAPPDATA%\voice-io on
+// Windows. Nothing here creates files.
 package paths
 
 import (
@@ -28,6 +30,14 @@ func xdg(env, fallback string) string {
 	return filepath.Join(home(), fallback)
 }
 
+// localAppData is %LOCALAPPDATA% (Windows only).
+func localAppData() string {
+	if v := os.Getenv("LOCALAPPDATA"); v != "" && filepath.IsAbs(v) {
+		return v
+	}
+	return filepath.Join(home(), "AppData", "Local")
+}
+
 // ConfigFile is the user config.toml path.
 func ConfigFile() string {
 	if v := os.Getenv("VOICE_IO_CONFIG"); v != "" {
@@ -35,6 +45,11 @@ func ConfigFile() string {
 			return abs
 		}
 		return v
+	}
+	if runtime.GOOS == "windows" {
+		if dir, err := os.UserConfigDir(); err == nil {
+			return filepath.Join(dir, appDir, "config.toml")
+		}
 	}
 	return filepath.Join(xdg("XDG_CONFIG_HOME", ".config"), appDir, "config.toml")
 }
@@ -45,8 +60,11 @@ func ConfigDir() string { return filepath.Dir(ConfigFile()) }
 
 // DataDir is the private per-user data root.
 func DataDir() string {
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		return filepath.Join(home(), "Library", "Application Support", appDir)
+	case "windows":
+		return filepath.Join(localAppData(), appDir)
 	}
 	return filepath.Join(xdg("XDG_DATA_HOME", filepath.Join(".local", "share")), appDir)
 }
@@ -65,16 +83,22 @@ func HistoryFile() string { return filepath.Join(DataDir(), "history.jsonl") }
 
 // CacheDir holds regenerable files (cue WAVs on Linux).
 func CacheDir() string {
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		return filepath.Join(home(), "Library", "Caches", appDir)
+	case "windows":
+		return filepath.Join(DataDir(), "cache")
 	}
 	return filepath.Join(xdg("XDG_CACHE_HOME", ".cache"), appDir)
 }
 
 // LogDir holds voice-io.log.
 func LogDir() string {
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		return filepath.Join(home(), "Library", "Logs", appDir)
+	case "windows":
+		return filepath.Join(DataDir(), "logs")
 	}
 	return filepath.Join(xdg("XDG_STATE_HOME", filepath.Join(".local", "state")), appDir)
 }

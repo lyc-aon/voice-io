@@ -9,8 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"time"
+
+	"gitlab.com/integral-inference/voice-io/internal/paths"
 )
 
 // Entry is one inserted dictation.
@@ -62,7 +63,7 @@ func (l *Log) Append(text, mode string) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(l.Path, os.O_WRONLY|os.O_APPEND|os.O_CREATE|syscall.O_NOFOLLOW, 0o600)
+	f, err := os.OpenFile(l.Path, os.O_WRONLY|os.O_APPEND|os.O_CREATE|paths.NoFollow, 0o600)
 	if err != nil {
 		return err
 	}

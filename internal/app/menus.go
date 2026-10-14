@@ -101,9 +101,11 @@ func (a *App) statusMenu() []ui.MenuItem {
 	if exists(a.meetingsDir()) {
 		items = append(items, ui.MenuItem{Title: "Open meeting notes", Action: "open-meetings"})
 	}
-	items = append(items, ui.Separator,
-		ui.MenuItem{Title: "Settings…", Action: "settings", Key: ",", Mods: 8},
-		ui.MenuItem{Title: "Quit Voice IO", Action: "quit"})
+	settings := ui.MenuItem{Title: "Settings…", Action: "settings"}
+	if runtime.GOOS == "darwin" {
+		settings.Key, settings.Mods = ",", 8 // ⌘, opens settings in every Mac app
+	}
+	items = append(items, ui.Separator, settings, ui.MenuItem{Title: "Quit Voice IO", Action: "quit"})
 	return items
 }
 

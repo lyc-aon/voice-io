@@ -342,6 +342,8 @@ func newHarness(t *testing.T, mutate func(*config.Config)) *harness {
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")
 	t.Setenv("VOICE_IO_CONFIG", "")
+	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 	cfg := config.Default()
 	cfg.KWS.Enabled = false
 	cfg.Polish.Enabled = false

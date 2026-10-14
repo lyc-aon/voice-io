@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"gitlab.com/integral-inference/voice-io/internal/app"
@@ -113,13 +112,13 @@ func launch(extra ...string) error {
 		return err
 	}
 	defer logf.Close()
-	exe, err := os.Executable()
+	exe, err := backgroundExe()
 	if err != nil {
 		return err
 	}
 	cmd := exec.Command(exe, append([]string{"run"}, extra...)...)
 	cmd.Stdout, cmd.Stderr = logf, logf
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	detach(cmd)
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -134,7 +133,7 @@ func openLog() (*os.File, error) {
 	if info, err := os.Lstat(paths.LogFile()); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		return nil, fmt.Errorf("refusing symlinked log %s", paths.LogFile())
 	}
-	f, err := os.OpenFile(paths.LogFile(), os.O_CREATE|os.O_APPEND|os.O_WRONLY|syscall.O_NOFOLLOW, 0o600)
+	f, err := os.OpenFile(paths.LogFile(), os.O_CREATE|os.O_APPEND|os.O_WRONLY|paths.NoFollow, 0o600)
 	if err != nil {
 		return nil, err
 	}

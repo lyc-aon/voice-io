@@ -6,15 +6,22 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"gitlab.com/integral-inference/voice-io/internal/paths"
 )
 
+// isolate gives the test its own home under a short path: Unix socket
+// paths are limited to about 100 bytes.
 func isolate(t *testing.T) {
 	t.Helper()
-	home, err := os.MkdirTemp("/tmp", "vio-")
+	base := "/tmp"
+	if runtime.GOOS == "windows" {
+		base = os.TempDir()
+	}
+	home, err := os.MkdirTemp(base, "vio-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,6 +29,7 @@ func isolate(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_DATA_HOME", "")
 	t.Setenv("XDG_RUNTIME_DIR", "")
+	t.Setenv("LOCALAPPDATA", home)
 }
 
 func TestOneDaemonAnswersCommandsPrivately(t *testing.T) {
@@ -59,12 +67,14 @@ func TestOneDaemonAnswersCommandsPrivately(t *testing.T) {
 	if _, err := Send("explode", ""); err == nil || !strings.Contains(err.Error(), "unknown command") {
 		t.Fatalf("handler error: %v", err)
 	}
-	info, err := os.Stat(paths.SocketPath())
-	if err != nil || info.Mode().Perm()&0o077 != 0 {
-		t.Fatalf("socket mode %v (%v)", info.Mode().Perm(), err)
-	}
-	if dir, _ := os.Stat(filepath.Dir(paths.SocketPath())); dir.Mode().Perm()&0o077 != 0 {
-		t.Fatalf("socket dir mode %v", dir.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(paths.SocketPath())
+		if err != nil || info.Mode().Perm()&0o077 != 0 {
+			t.Fatalf("socket mode %v (%v)", info.Mode().Perm(), err)
+		}
+		if dir, _ := os.Stat(filepath.Dir(paths.SocketPath())); dir.Mode().Perm()&0o077 != 0 {
+			t.Fatalf("socket dir mode %v", dir.Mode().Perm())
+		}
 	}
 
 	c, err := net.Dial("unix", paths.SocketPath())

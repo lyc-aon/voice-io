@@ -54,9 +54,12 @@ func BuildEngines(cfg *config.Config) (*Engines, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The spotter runs on every audio chunk while idle. One thread keeps up
+	// easily; more leave ONNX Runtime's worker threads spinning between
+	// chunks, which cost a whole core while idle on Windows.
 	kws, err := speech.NewKWS(speech.KWSConfig{ModelDir: kwsDir, Chunk: cfg.KWS.Chunk, Score: cfg.KWS.Score,
 		Threshold: cfg.KWS.Threshold, WakePhrase: cfg.KWS.WakePhrase, EndPhrase: cfg.KWS.EndPhrase,
-		Threads: cfg.ASR.Threads})
+		Threads: 1})
 	if err != nil {
 		vad.Close()
 		return nil, err

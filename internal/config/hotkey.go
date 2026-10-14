@@ -109,7 +109,8 @@ func keyLabel(key string, names map[string]string) string {
 	return strings.ToUpper(key)
 }
 
-// Display renders the shortcut for people: ⌃⌥Space on macOS, Ctrl+Alt+Space elsewhere.
+// Display renders the shortcut for people: ⌃⌥Space on macOS, Ctrl+Alt+Space
+// elsewhere, with Win for the Windows key and Super on Linux.
 func (h Hotkey) Display(goos string) string {
 	if goos == "darwin" {
 		var b strings.Builder
@@ -124,11 +125,15 @@ func (h Hotkey) Display(goos string) string {
 		b.WriteString(keyLabel(h.Key, macKeyGlyphs))
 		return b.String()
 	}
+	super := "Super"
+	if goos == "windows" {
+		super = "Win"
+	}
 	var parts []string
 	for _, m := range []struct {
 		mod  Mod
 		name string
-	}{{ModCtrl, "Ctrl"}, {ModAlt, "Alt"}, {ModShift, "Shift"}, {ModSuper, "Super"}} {
+	}{{ModCtrl, "Ctrl"}, {ModAlt, "Alt"}, {ModShift, "Shift"}, {ModSuper, super}} {
 		if h.Mods&m.mod != 0 {
 			parts = append(parts, m.name)
 		}

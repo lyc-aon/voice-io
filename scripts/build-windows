@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Build Voice IO for Windows (x64) and package it as a zip: voice-io.exe (the
+# command line), "Voice IO.exe" (the same program without a console window,
+# for the Start menu and starting at login), the speech runtime DLLs and the
+# licenses. Cross-compiles from macOS or Linux with mingw-w64, or builds on
+# Windows in an MSYS2 MINGW64 shell.
+#
+# Needs: Go 1.24+, x86_64-w64-mingw32-gcc and -windres (mingw-w64), zip.
+# usage: scripts/build-windows [output-dir]      (default: dist/)
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OUT="${1:-$ROOT/dist}"
+SHORT_VERSION="${SHORT_VERSION:-2.0.0}"
+cd "$ROOT"
+
+CC="${CC:-x86_64-w64-mingw32-gcc}"
+WINDRES="${WINDRES:-x86_64-w64-mingw32-windres}"
+for tool in go "$CC" "$WINDRES" zip; do
+    command -v "$tool" >/dev/null || { printf 'build-windows needs %s\n' "$tool" >&2; exit 2; }
+done
+
+commit="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+    commit="$commit-dirty"
+fi
+version="$SHORT_VERSION+$commit"
+IFS=. read -r major minor patch <<<"$SHORT_VERSION"
+name="voice-io-$SHORT_VERSION-windows-x64"
+stage="$OUT/$name"
+syso="$ROOT/cmd/voice-io/rsrc_windows_amd64.syso"
+res="$(mktemp -d)"
+trap 'rm -rf "$res" "$syso"' EXIT
+
+# Icon, manifest and version information, linked into both executables.
+cp packaging/windows/voice-io.ico "$res/"
+sed "s/__VERSION4__/$major.$minor.$patch.0/" packaging/windows/voice-io.manifest > "$res/voice-io.manifest"
+sed -e "s/__VERSIONC__/$major,$minor,$patch,0/" -e "s/__VERSION__/$version/" \
+    packaging/windows/voice-io.rc > "$res/voice-io.rc"
+(cd "$res" && "$WINDRES" -O coff -o "$syso" voice-io.rc)
+
+rm -rf "$stage" "$OUT/$name.zip"
+mkdir -p "$stage"
+ldflags="-s -w -X gitlab.com/integral-inference/voice-io/internal/version.Version=$version"
+export GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC
+go build -trimpath -ldflags "$ldflags" -o "$stage/voice-io.exe" ./cmd/voice-io
+go build -trimpath -ldflags "$ldflags -H windowsgui" -o "$stage/Voice IO.exe" ./cmd/voice-io
+unset GOOS GOARCH CGO_ENABLED
+
+libs="$(go list -m -f '{{.Dir}}' github.com/k2-fsa/sherpa-onnx-go-windows)/lib/x86_64-pc-windows-gnu"
+cp "$libs/sherpa-onnx-c-api.dll" "$libs/onnxruntime.dll" "$stage/"
+chmod 644 "$stage/"*.dll
+scripts/copy-licenses "$stage/voice-io.exe" "$stage/licenses"
+
+(cd "$OUT" && zip -qr "$name.zip" "$name")
+printf '%s\n' "$OUT/$name.zip"

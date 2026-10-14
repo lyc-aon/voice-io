@@ -1,6 +1,7 @@
 // Package control is the daemon's local control socket: newline-delimited
-// JSON requests over a private Unix socket. Desktop shortcuts, the CLI and
-// Settings use it to send push/toggle/cancel and to read status.
+// JSON requests over a private Unix-domain socket (AF_UNIX, which Windows
+// 10 and later also provide). Desktop shortcuts, the CLI and Settings use
+// it to send push/toggle/cancel and to read status.
 package control
 
 import (
@@ -11,7 +12,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"gitlab.com/integral-inference/voice-io/internal/paths"
@@ -64,14 +64,11 @@ func Listen(handler Handler) (*Server, error) {
 		}
 		_ = os.Remove(path) // stale socket from a crashed daemon
 	}
-	old := syscall.Umask(0o177)
-	ln, err := net.Listen("unix", path)
-	syscall.Umask(old)
+	ln, err := listenPrivate(path)
 	if err != nil {
 		lock.Close()
 		return nil, err
 	}
-	_ = os.Chmod(path, 0o600)
 	s := &Server{ln: ln, lock: lock, path: path}
 	go s.serve(handler)
 	return s, nil
@@ -85,7 +82,7 @@ func acquireLock(path string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := lockFile(f); err != nil {
 		f.Close()
 		return nil, ErrAlreadyRunning
 	}

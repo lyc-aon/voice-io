@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -88,7 +89,7 @@ func TestUpdatePersistsFieldsAndPreservesEverythingElse(t *testing.T) {
 	if loaded.UI.Theme != "light" || loaded.Hotkeys.Push != "super+shift+p" || loaded.KWS.EndPhrase != "computer stop" {
 		t.Fatalf("reload %+v", loaded.UI)
 	}
-	if info, _ := os.Stat(file); info.Mode().Perm()&0o077 != 0 {
+	if info, _ := os.Stat(file); runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		t.Errorf("config mode %v is not private", info.Mode().Perm())
 	}
 }
@@ -194,8 +195,10 @@ func TestUnknownSettingsWarnInsteadOfFailing(t *testing.T) {
 }
 
 func TestResolveKeepsModelPathsInsideTheModelRoot(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	home := t.TempDir()
+	t.Setenv("HOME", home)
 	t.Setenv("XDG_DATA_HOME", "")
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 	cfg := Default()
 	got, err := cfg.Resolve("models/final/tokens.txt")
 	if err != nil {
@@ -209,7 +212,8 @@ func TestResolveKeepsModelPathsInsideTheModelRoot(t *testing.T) {
 			t.Errorf("Resolve(%q) = %q; want error", bad, p)
 		}
 	}
-	if p, err := cfg.Resolve("/opt/models/final"); err != nil || p != "/opt/models/final" {
+	abs := filepath.Join(home, "opt", "models", "final")
+	if p, err := cfg.Resolve(abs); err != nil || p != abs {
 		t.Errorf("absolute path: %q %v", p, err)
 	}
 }
